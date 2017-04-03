@@ -1,0 +1,143 @@
+---
+title: "Machine Learning Project"
+author: "Beecher Adams"
+date: "April 2, 2017"
+---
+
+
+## Overview
+
+The goal of this project is to predict the manner in which participants did the Unilateral Dumbbell Biceps Curl exercise, which is represented by the "classe" variable in the training set.  classe has the following possible values:
+
+* Class A - exactly according to the specification
+* Class B - throwing the elbows to the front
+* Class C - lifting the dumbbell only halfway
+* Class D - lowering the dumbbell only halfway
+* Class E - throwing the hips to the front
+
+## How the Model was Built
+
+The model was built using the train function from the caret package. Three different models were evaluated:
+
+* rpart - Recursive Partioning
+* rf - Random Forest
+* gbm - Gradient Boosting Machine
+
+## Explanation of Choices Made
+
+Of the three models tried, the best model was choosen by looking at the accuracy reported by the model package and the expected out of sample error.  I found that it was taking a tremendously long time to do the model computation using all 19622 observations from the training data, so I reduced the training set to 5000 observations by taking a random sample.  Of these 5000, 70% were used to train the model, while 30% were retained to compute the out of sample error estimate.
+
+## Load the caret library
+
+```{r echo = TRUE, message= FALSE, error = FALSE, warning = FALSE}
+library(caret)
+  
+```
+
+
+## Read in the Training and Testing Data Files
+
+```{r echo = TRUE}
+setwd("C:/Users/beecher/Documents/Coursera/MachineLearning")
+training <- read.csv("pml-training.csv")
+testing <- read.csv("pml-testing.csv")
+  
+```
+
+## Do some cleanup of the data
+
+```{r echo = TRUE}
+# remove columns which aren't useful for prediction
+
+training_c <- training[ , c(8:11,37:49,84:86,113:124,151:160)]
+
+testing_c <- testing[ , c(8:11,37:49,84:86,113:124,151:160)]
+
+```
+
+
+## Create data partitions
+
+```{r echo = TRUE}
+# As mentioned to speed up model computation, reduce the original training set down to 5000 rows
+# set the seed for reproducible results
+set.seed(1299)
+training_s <- training_c[sample(nrow(training_c), 5000),]
+
+# split into a sub-training dataset and a sub-testing dataset 
+inTrain <- createDataPartition(y = training_s$classe, p = .7, list=FALSE)
+training_si <- training_s[inTrain,]
+testing_so <- training_s[-inTrain,]
+
+```
+
+
+## Cross-Validation Model Computations
+
+```{r echo = TRUE, cache = TRUE, message= FALSE, error = FALSE, warning = FALSE}
+
+# set the seed for reproducible results
+set.seed(3433)
+
+# compute the models for the 3 different model methods
+
+# rpart
+mod_rpart <- train(classe ~ ., method="rpart", data=training_si)
+
+# rf
+mod_rf <- train(classe ~ ., method="rf", data=training_si)
+
+# gbm
+mod_gbm <- train(classe ~ ., method="gbm", data=training_si,verbose=FALSE)
+
+```
+
+By examing the output of the model (e.g., mod_rpart, etc.), we can see the reported accuracy values as follows:
+
+* rpart: 0.525
+* rf: 0.956
+* gbm: 0.928
+
+## Estimate of Out of Sample Error
+
+We first run the predict function on the out of sample test data and then
+compute the error rate.
+
+```{r echo = TRUE}
+
+# rpart
+pred_rpart <- predict(mod_rpart,testing_so)
+# error
+1- sum(pred_rpart == testing_so$classe) / length(pred_rpart)
+
+# rf
+pred_rf <- predict(mod_rf,testing_so)
+# error
+1- sum(pred_rf == testing_so$classe) / length(pred_rf)
+
+# gbm
+pred_gbm <- predict(mod_gbm,testing_so)
+# error
+1- sum(pred_gbm == testing_so$classe) / length(pred_gbm)
+
+```
+
+Looking at the accuracy results and out of sample errror, the Random Forest model yields the best results.  We can also examine some details about the model.
+
+```{r echo = TRUE}
+
+mod_rf$finalModel
+plot(mod_rf)
+
+```
+
+Finally we'll use the rf model on the 20 observations in the testing data set.
+
+```{r echo = TRUE}
+
+# rf
+pred_rf_testing <- predict(mod_rf,testing_c)
+pred_rf_testing
+
+```
+
